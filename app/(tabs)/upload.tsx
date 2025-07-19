@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { StyleSheet, View, Text, TextInput, Pressable, ScrollView, Image, Alert, Platform } from "react-native";
 import { useRouter } from "expo-router";
-import { X, Upload, Youtube, Link2, Clock, Tag, Globe, Lock, ChevronDown, Check } from "lucide-react-native";
+import { X, Upload, Youtube, Link2, Clock, Tag, Globe, Lock, ChevronDown, Check, Plus } from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
-import Colors from "@/constants/Colors";
+import Colors from "@/constants/colors";
 import Header from "@/components/Header";
+import { PRESET_GAME_TAGS } from "@/constants/game-tags";
 
 type UploadMethod = "local" | "youtube" | "url";
 type Visibility = "public" | "followers" | "private";
@@ -22,6 +23,7 @@ export default function UploadScreen() {
   const [expiryTime, setExpiryTime] = useState<ExpiryTime>("24h");
   const [showVisibilityOptions, setShowVisibilityOptions] = useState(false);
   const [showExpiryOptions, setShowExpiryOptions] = useState(false);
+  const [showPresetTags, setShowPresetTags] = useState(false);
 
   const handleUpload = () => {
     if (!title.trim()) {
@@ -39,7 +41,6 @@ export default function UploadScreen() {
       return;
     }
 
-    // In a real app, we would upload the clip here
     Alert.alert("Success", "Your clip has been uploaded!", [
       { text: "OK", onPress: () => router.back() }
     ]);
@@ -49,6 +50,12 @@ export default function UploadScreen() {
     if (newTag.trim() && !gameTags.includes(newTag.trim())) {
       setGameTags([...gameTags, newTag.trim()]);
       setNewTag("");
+    }
+  };
+
+  const handleAddPresetTag = (tag: string) => {
+    if (!gameTags.includes(tag)) {
+      setGameTags([...gameTags, tag]);
     }
   };
 
@@ -98,7 +105,6 @@ export default function UploadScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <Header 
         title="New Clip"
         showSearch={false}
@@ -108,14 +114,12 @@ export default function UploadScreen() {
       />
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Share Button */}
         <View style={styles.shareButtonContainer}>
           <Pressable style={styles.shareButton} onPress={handleUpload}>
             <Text style={styles.shareButtonText}>Share</Text>
           </Pressable>
         </View>
 
-        {/* Upload Method Selector */}
         <View style={styles.methodSelector}>
           <Pressable
             style={[styles.methodOption, uploadMethod === "youtube" && styles.activeMethod]}
@@ -170,7 +174,6 @@ export default function UploadScreen() {
           </Pressable>
         </View>
 
-        {/* Title Input */}
         <View style={styles.inputContainer}>
           <Text style={styles.inputLabel}>Title</Text>
           <TextInput
@@ -183,7 +186,6 @@ export default function UploadScreen() {
           />
         </View>
 
-        {/* URL Input */}
         <View style={styles.inputContainer}>
           <Text style={styles.inputLabel}>
             {uploadMethod === "youtube"
@@ -212,7 +214,6 @@ export default function UploadScreen() {
           )}
         </View>
 
-        {/* Thumbnail */}
         <View style={styles.inputContainer}>
           <Text style={styles.inputLabel}>Thumbnail</Text>
           {thumbnailUrl ? (
@@ -230,22 +231,69 @@ export default function UploadScreen() {
           )}
         </View>
 
-        {/* Game Tags */}
         <View style={styles.inputContainer}>
           <Text style={styles.inputLabel}>Game Tags</Text>
+          
+          {/* Preset Tags Button */}
+          <Pressable 
+            style={styles.presetTagsButton} 
+            onPress={() => setShowPresetTags(!showPresetTags)}
+          >
+            <Tag color={Colors.primary} size={18} />
+            <Text style={styles.presetTagsButtonText}>Choose from preset tags</Text>
+            <ChevronDown color={Colors.primary} size={18} />
+          </Pressable>
+
+          {/* Preset Tags Grid */}
+          {showPresetTags && (
+            <View style={styles.presetTagsContainer}>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                style={styles.presetTagsScroll}
+              >
+                <View style={styles.presetTagsContent}>
+                  {PRESET_GAME_TAGS.map((tag) => (
+                    <Pressable
+                      key={tag}
+                      style={[
+                        styles.presetTag,
+                        gameTags.includes(tag) && styles.selectedPresetTag
+                      ]}
+                      onPress={() => handleAddPresetTag(tag)}
+                    >
+                      <Text style={[
+                        styles.presetTagText,
+                        gameTags.includes(tag) && styles.selectedPresetTagText
+                      ]}>
+                        {tag}
+                      </Text>
+                      {gameTags.includes(tag) && (
+                        <Check color={Colors.text} size={14} style={styles.checkIcon} />
+                      )}
+                    </Pressable>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+          )}
+
+          {/* Custom Tag Input */}
           <View style={styles.tagInputContainer}>
             <TextInput
               style={styles.tagInput}
-              placeholder="Add game tags (e.g. APEX, Fortnite)"
+              placeholder="Add custom tag"
               placeholderTextColor={Colors.textSecondary}
               value={newTag}
               onChangeText={setNewTag}
               onSubmitEditing={handleAddTag}
             />
             <Pressable style={styles.addTagButton} onPress={handleAddTag}>
-              <Text style={styles.addTagButtonText}>Add</Text>
+              <Plus color={Colors.text} size={18} />
             </Pressable>
           </View>
+
+          {/* Selected Tags */}
           <View style={styles.tagsContainer}>
             {gameTags.map((tag) => (
               <View key={tag} style={styles.tag}>
@@ -258,7 +306,6 @@ export default function UploadScreen() {
           </View>
         </View>
 
-        {/* Visibility */}
         <View style={styles.inputContainer}>
           <Text style={styles.inputLabel}>Visibility</Text>
           <Pressable
@@ -292,7 +339,6 @@ export default function UploadScreen() {
           )}
         </View>
 
-        {/* Expiry Time */}
         <View style={styles.inputContainer}>
           <Text style={styles.inputLabel}>Story Duration</Text>
           <Pressable
@@ -456,9 +502,68 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "500" as const,
   },
+  presetTagsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: `${Colors.primary}20`,
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+  presetTagsButtonText: {
+    color: Colors.primary,
+    fontSize: 16,
+    fontWeight: "600" as const,
+    marginLeft: 8,
+    flex: 1,
+  },
+  presetTagsContainer: {
+    marginBottom: 15,
+    height: 60,
+  },
+  presetTagsScroll: {
+    flex: 1,
+  },
+  presetTagsContent: {
+    flexDirection: "row",
+    paddingVertical: 10,
+    paddingHorizontal: 5,
+    alignItems: "center",
+  },
+  presetTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.backgroundLight,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  selectedPresetTag: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  presetTagText: {
+    color: Colors.text,
+    fontSize: 14,
+    fontWeight: "500" as const,
+  },
+  selectedPresetTagText: {
+    color: Colors.text,
+    fontWeight: "600" as const,
+  },
+  checkIcon: {
+    marginLeft: 5,
+  },
   tagInputContainer: {
     flexDirection: "row",
     alignItems: "center",
+    marginBottom: 10,
   },
   tagInput: {
     flex: 1,
@@ -476,10 +581,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderTopRightRadius: 8,
     borderBottomRightRadius: 8,
-  },
-  addTagButtonText: {
-    color: Colors.text,
-    fontWeight: "600" as const,
+    justifyContent: "center",
+    alignItems: "center",
   },
   tagsContainer: {
     flexDirection: "row",

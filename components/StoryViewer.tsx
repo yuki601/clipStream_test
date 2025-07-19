@@ -4,7 +4,7 @@ import { ArrowLeft, Home } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { VideoClip } from "@/types";
 import VideoPlayer from "./VideoPlayer";
-import Colors from "@/constants/Colors";
+import Colors from "@/constants/colors";
 
 interface StoryViewerProps {
   clips: VideoClip[];

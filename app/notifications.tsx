@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { StyleSheet, View, Text, ScrollView, Pressable, Image } from "react-native";
 import { useRouter } from "expo-router";
 import { Heart, MessageCircle, UserPlus, Play, Settings } from "lucide-react-native";
-import Colors from "../constants/Colors";
+import Colors from "../constants/colors";
 import Header from "../components/Header";
 
 interface Notification {

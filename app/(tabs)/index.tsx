@@ -1,26 +1,38 @@
 import React, { useState } from "react";
 import { StyleSheet, View, Text, ScrollView, Pressable } from "react-native";
 import { useRouter } from "expo-router";
-import Colors from "@/constants/Colors";
+import Colors from "@/constants/colors";
 import Header from "@/components/Header";
 import StoryCircle from "@/components/StoryCircle";
 import StoryViewer from "@/components/StoryViewer";
 import ClipThumbnail from "@/components/ClipThumbnail";
+import TrendingSection from "@/components/TrendingSection";
 import { mockClips } from "@/mocks/clips";
 import { mockUsers } from "@/mocks/users";
+import { mockTrendingCategories } from "@/mocks/trending";
 
 export default function HomeScreen() {
   const router = useRouter();
   const [viewingStories, setViewingStories] = useState(false);
   const [selectedStoryIndex, setSelectedStoryIndex] = useState(0);
+  const [selectedClips, setSelectedClips] = useState(mockClips);
 
   const handleStoryPress = (index: number) => {
     setSelectedStoryIndex(index);
+    setSelectedClips(mockClips);
     setViewingStories(true);
   };
 
   const handleClipPress = (index: number) => {
     setSelectedStoryIndex(index);
+    setSelectedClips(mockClips);
+    setViewingStories(true);
+  };
+
+  const handleTrendingClipPress = (categoryIndex: number, clipIndex: number) => {
+    const categoryClips = mockTrendingCategories[categoryIndex].clips;
+    setSelectedStoryIndex(clipIndex);
+    setSelectedClips(categoryClips);
     setViewingStories(true);
   };
 
@@ -31,7 +43,7 @@ export default function HomeScreen() {
   if (viewingStories) {
     return (
       <StoryViewer 
-        clips={mockClips} 
+        clips={selectedClips} 
         initialClipIndex={selectedStoryIndex} 
         onClose={handleCloseStoryViewer}
       />
@@ -58,6 +70,12 @@ export default function HomeScreen() {
           </ScrollView>
         </View>
 
+        {/* Trending Section */}
+        <TrendingSection 
+          categories={mockTrendingCategories}
+          onClipPress={handleTrendingClipPress}
+        />
+
         {/* Featured clips */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Featured Clips</Text>
@@ -73,10 +91,10 @@ export default function HomeScreen() {
           </ScrollView>
         </View>
 
-        {/* Trending now */}
+        {/* Recent clips */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Trending Now</Text>
-          <View style={styles.trendingGrid}>
+          <Text style={styles.sectionTitle}>Recent Clips</Text>
+          <View style={styles.recentGrid}>
             {mockClips.map((clip, index) => (
               <ClipThumbnail
                 key={clip.id}
@@ -121,7 +139,7 @@ const styles = StyleSheet.create({
   featuredScroll: {
     paddingBottom: 15,
   },
-  trendingGrid: {
+  recentGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",

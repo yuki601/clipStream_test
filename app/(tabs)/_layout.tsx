@@ -1,8 +1,8 @@
 import { Tabs } from "expo-router";
 import React from "react";
-import { Home, PlusCircle, User } from "lucide-react-native";
+import { Home, PlusCircle, User, Users, MessageCircle } from "lucide-react-native";
 import { StyleSheet } from "react-native";
-import Colors from "./../../constants/Colors";
+import Colors from "@/constants/colors";
 
 export default function TabLayout() {
   return (
@@ -23,12 +23,27 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="friends"
+        options={{
+          title: "Friends",
+          tabBarIcon: ({ color, size }) => <Users color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
         name="upload"
         options={{
           title: "Upload",
           tabBarIcon: ({ color, size }) => <PlusCircle color={color} size={size} />,
         }}
       />
+      <Tabs.Screen
+        name="messages"
+        options={{
+          title: "Messages",
+          tabBarIcon: ({ color, size }) => <MessageCircle color={color} size={size} />,
+        }}
+      />
+      
       <Tabs.Screen
         name="profile"
         options={{

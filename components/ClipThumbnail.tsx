@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet, View, Text, Image, Pressable, Dimensions } from "react-native";
 import { Play } from "lucide-react-native";
-import Colors from "@/constants/Colors";
+import Colors from "@/constants/colors";
 import { VideoClip } from "@/types";
 
 interface ClipThumbnailProps {

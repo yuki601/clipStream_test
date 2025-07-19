@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { StyleSheet, View, Text, Image, ScrollView, Pressable, Dimensions } from "react-native";
 import { Settings, Grid3X3, Bookmark, Edit3 } from "lucide-react-native";
-import Colors from "@/constants/Colors";
+import { useRouter } from "expo-router";
+import Colors from "@/constants/colors";
 import Header from "@/components/Header";
 import ClipThumbnail from "@/components/ClipThumbnail";
 import StoryViewer from "@/components/StoryViewer";
@@ -12,6 +13,7 @@ const { width } = Dimensions.get("window");
 const currentUser = mockUsers.find(user => user.id === "currentUser");
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<"clips" | "highlights">("clips");
   const [viewingStories, setViewingStories] = useState(false);
   const [selectedClipIndex, setSelectedClipIndex] = useState(0);
@@ -23,6 +25,14 @@ export default function ProfileScreen() {
 
   const handleCloseStoryViewer = () => {
     setViewingStories(false);
+  };
+
+  const handleEditProfile = () => {
+    router.push("/edit-profile");
+  };
+
+  const handleSettings = () => {
+    router.push("/settings");
   };
 
   if (viewingStories) {
@@ -63,7 +73,7 @@ export default function ProfileScreen() {
               <Text style={styles.statLabel}>Following</Text>
             </View>
           </View>
-          <Pressable style={styles.settingsButton}>
+          <Pressable style={styles.settingsButton} onPress={handleSettings}>
             <Settings color={Colors.text} size={24} />
           </Pressable>
         </View>
@@ -75,7 +85,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* Edit Profile Button */}
-        <Pressable style={styles.editButton}>
+        <Pressable style={styles.editButton} onPress={handleEditProfile}>
           <Edit3 color={Colors.text} size={16} style={styles.editIcon} />
           <Text style={styles.editButtonText}>Edit Profile</Text>
         </Pressable>

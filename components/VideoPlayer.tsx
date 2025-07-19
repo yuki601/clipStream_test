@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { StyleSheet, View, Text, Image, Pressable, Dimensions, Platform } from "react-native";
 import { WebView } from "react-native-webview";
 import { Play, Pause, Volume2, VolumeX, Heart, MessageCircle, Share2 } from "lucide-react-native";
-import Colors from "@/constants/Colors";
+import Colors from "@/constants/colors";
 import { VideoClip } from "@/types";
 import { LinearGradient } from "expo-linear-gradient";
 

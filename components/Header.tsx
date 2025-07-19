@@ -2,7 +2,7 @@ import React from "react";
 import { StyleSheet, View, Text, Pressable } from "react-native";
 import { Search, Bell, ArrowLeft, Home } from "lucide-react-native";
 import { useRouter } from "expo-router";
-import Colors from "@/constants/Colors";
+import Colors from "@/constants/colors";
 
 interface HeaderProps {
   title?: string;
@@ -24,11 +24,11 @@ export default function Header({
   const router = useRouter();
 
   const handleSearchPress = () => {
-    router.push({ pathname: '/search' }); // 修正
+    router.push("/search");
   };
 
   const handleNotificationPress = () => {
-    router.push({ pathname: "/notifications" }); // 修正
+    router.push("/notifications");
   };
 
   const handleBackPress = () => {
@@ -40,7 +40,7 @@ export default function Header({
   };
 
   const handleHomePress = () => {
-    router.push({ pathname: "/(tabs)" }); // 修正
+    router.push("/(tabs)");
   };
 
   return (

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { StyleSheet, View, Text, TextInput, ScrollView, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { Search, X, TrendingUp, Clock, Hash, User } from "lucide-react-native";
-import Colors from "@/constants/Colors";
+import Colors from "@/constants/colors";
 import Header from "@/components/Header";
 import ClipThumbnail from "@/components/ClipThumbnail";
 import StoryCircle from "@/components/StoryCircle";

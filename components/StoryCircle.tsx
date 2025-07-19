@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet, View, Text, Image, Pressable } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import Colors from "@/constants/Colors";
+import Colors from "@/constants/colors";
 
 interface StoryCircleProps {
   imageUrl: string;
