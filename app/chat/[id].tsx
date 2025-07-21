@@ -3,6 +3,8 @@ import { StyleSheet, View, Text, ScrollView, Pressable, TextInput, Image, Keyboa
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, Send, Camera, Mic, Smile, MoreVertical } from "lucide-react-native";
 import Colors from "@/constants/colors";
+import { chatsApi } from '@/lib/api';
+import { useAuth } from '@/hooks/useAuth';
 
 interface ChatMessage {
   id: string;
@@ -58,39 +60,48 @@ const friendData = {
 
 export default function ChatScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams();
+  const { id: chatId } = useLocalSearchParams();
+  const { user } = useAuth();
   const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState(mockChatMessages);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  const friend = friendData[id as keyof typeof friendData] || friendData.friend1;
+  useEffect(() => {
+    if (!chatId) return;
+    setLoading(true);
+    chatsApi.getChatMessages(chatId as string)
+      .then(setMessages)
+      .finally(() => setLoading(false));
+  }, [chatId]);
 
   useEffect(() => {
     scrollViewRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
 
-  const sendMessage = () => {
-    if (message.trim()) {
-      const newMessage: ChatMessage = {
-        id: Date.now().toString(),
-        text: message.trim(),
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        isMe: true,
-        type: 'text'
-      };
-      setMessages([...messages, newMessage]);
-      setMessage("");
-    }
+  const sendMessage = async () => {
+    if (!message.trim() || !user || !chatId) return;
+    await chatsApi.sendMessage({
+      chatId: chatId as string,
+      userId: user.id,
+      username: user.user_metadata?.username || user.email,
+      userAvatar: user.user_metadata?.avatar || '',
+      content: message.trim(),
+      type: 'text',
+    });
+    setMessage("");
+    const newMessages = await chatsApi.getChatMessages(chatId as string);
+    setMessages(newMessages);
   };
 
-  const MessageBubble = ({ msg }: { msg: ChatMessage }) => (
-    <View style={[styles.messageContainer, msg.isMe ? styles.myMessage : styles.theirMessage]}>
-      <View style={[styles.messageBubble, msg.isMe ? styles.myBubble : styles.theirBubble]}>
-        <Text style={[styles.messageText, msg.isMe ? styles.myMessageText : styles.theirMessageText]}>
-          {msg.text}
+  const MessageBubble = ({ msg }: { msg: any }) => (
+    <View style={[styles.messageContainer, msg.user_id === user?.id ? styles.myMessage : styles.theirMessage]}>
+      <View style={[styles.messageBubble, msg.user_id === user?.id ? styles.myBubble : styles.theirBubble]}>
+        <Text style={[styles.messageText, msg.user_id === user?.id ? styles.myMessageText : styles.theirMessageText]}>
+          {msg.content}
         </Text>
       </View>
-      <Text style={styles.messageTime}>{msg.timestamp}</Text>
+      <Text style={styles.messageTime}>{msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</Text>
     </View>
   );
 
@@ -106,13 +117,13 @@ export default function ChatScreen() {
         </Pressable>
         <View style={styles.friendInfo}>
           <View style={styles.avatarContainer}>
-            <Image source={{ uri: friend.avatar }} style={styles.avatar} />
-            {friend.isOnline && <View style={styles.onlineIndicator} />}
+            <Image source={{ uri: friendData[id as keyof typeof friendData]?.avatar || friendData.friend1.avatar }} style={styles.avatar} />
+            {friendData[id as keyof typeof friendData]?.isOnline && <View style={styles.onlineIndicator} />}
           </View>
           <View>
-            <Text style={styles.friendName}>{friend.name}</Text>
+            <Text style={styles.friendName}>{friendData[id as keyof typeof friendData]?.name || friendData.friend1.name}</Text>
             <Text style={styles.friendStatus}>
-              {friend.isOnline ? "Online" : "Last seen 2h ago"}
+              {friendData[id as keyof typeof friendData]?.isOnline ? "Online" : "Last seen 2h ago"}
             </Text>
           </View>
         </View>
@@ -128,9 +139,13 @@ export default function ChatScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.messagesContent}
       >
-        {messages.map((msg) => (
-          <MessageBubble key={msg.id} msg={msg} />
-        ))}
+        {loading ? (
+          <Text style={{ color: Colors.textSecondary }}>Loading...</Text>
+        ) : (
+          messages.map((msg) => (
+            <MessageBubble key={msg.id} msg={msg} />
+          ))
+        )}
       </ScrollView>
 
       {/* Input */}

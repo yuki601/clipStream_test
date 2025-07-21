@@ -1,8 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { StyleSheet, View, Text, ScrollView, Pressable, TextInput, Image } from "react-native";
 import { useRouter } from "expo-router";
 import { ArrowLeft, Search, MessageCircle } from "lucide-react-native";
 import Colors from "@/constants/colors";
+import { chatsApi } from '@/lib/api';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
 
 const mockFriends = [
   {
@@ -44,30 +47,40 @@ const mockFriends = [
 
 export default function NewMessageScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const filteredFriends = mockFriends.filter(friend =>
-    friend.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    friend.username.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setUsers([]);
+      return;
+    }
+    setLoading(true);
+    supabase.from('users')
+      .select('*')
+      .ilike('username', `%${searchQuery}%`)
+      .then(({ data }) => setUsers(data || []))
+      .finally(() => setLoading(false));
+  }, [searchQuery]);
 
-  const handleStartChat = (friendId: string) => {
-    router.push(`/chat/${friendId}`);
+  const handleStartChat = async (friendId: string) => {
+    if (!user) return;
+    // 既存チャットがあれば再利用（簡易実装）
+    const chat = await chatsApi.createChat([user.id, friendId]);
+    router.push(`/chat/${chat.id}`);
   };
 
-  const FriendItem = ({ friend }: { friend: typeof mockFriends[0] }) => (
+  const FriendItem = ({ friend }: { friend: any }) => (
     <Pressable style={styles.friendItem} onPress={() => handleStartChat(friend.id)}>
       <View style={styles.friendInfo}>
         <View style={styles.avatarContainer}>
           <Image source={{ uri: friend.avatar }} style={styles.avatar} />
-          {friend.isOnline && <View style={styles.onlineIndicator} />}
         </View>
         <View style={styles.friendDetails}>
-          <Text style={styles.friendName}>{friend.name}</Text>
+          <Text style={styles.friendName}>{friend.display_name || friend.username}</Text>
           <Text style={styles.friendUsername}>@{friend.username}</Text>
-          <Text style={styles.friendStatus}>
-            {friend.isOnline ? "Online" : "Offline"}
-          </Text>
         </View>
       </View>
       <Pressable style={styles.messageButton} onPress={() => handleStartChat(friend.id)}>
@@ -102,15 +115,18 @@ export default function NewMessageScreen() {
 
       {/* Friends List */}
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionTitle}>Friends</Text>
-        {filteredFriends.map((friend) => (
-          <FriendItem key={friend.id} friend={friend} />
-        ))}
-
-        {filteredFriends.length === 0 && (
+        <Text style={styles.sectionTitle}>Users</Text>
+        {loading ? (
+          <Text style={{ color: Colors.textSecondary }}>Loading...</Text>
+        ) : (
+          users.map((friend) => (
+            <FriendItem key={friend.id} friend={friend} />
+          ))
+        )}
+        {users.length === 0 && !loading && (
           <View style={styles.emptyState}>
             <MessageCircle color={Colors.textSecondary} size={50} />
-            <Text style={styles.emptyStateText}>No friends found</Text>
+            <Text style={styles.emptyStateText}>No users found</Text>
             <Text style={styles.emptyStateSubtext}>
               Try searching for a different name
             </Text>

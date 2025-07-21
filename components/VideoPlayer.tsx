@@ -5,6 +5,8 @@ import { Play, Pause, Volume2, VolumeX, Heart, MessageCircle, Share2 } from "luc
 import Colors from "@/constants/colors";
 import { VideoClip } from "@/types";
 import { LinearGradient } from "expo-linear-gradient";
+import { clipsApi, earningsApi } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 
 interface VideoPlayerProps {
   clip: VideoClip;
@@ -18,11 +20,26 @@ export default function VideoPlayer({ clip, isActive }: VideoPlayerProps) {
   const [isMuted, setIsMuted] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
   const [showThumbnail, setShowThumbnail] = useState(true);
+  const [viewCounted, setViewCounted] = useState(false);
+
+  // 収益分配: 公式ユーザーは2pt, それ以外は1pt
+  const handleViewCountAndEarning = async () => {
+    if (viewCounted) return;
+    setViewCounted(true);
+    try {
+      await clipsApi.incrementViewCount(clip.id);
+      const point = clip.userIsVerified ? 2 : 1;
+      await earningsApi.addEarning(clip.userId, point, 'clip_view', clip.id);
+    } catch (e) {
+      // エラーは握りつぶす（UIには出さない）
+    }
+  };
 
   const togglePlay = () => {
     setIsPlaying(!isPlaying);
     if (showThumbnail) {
       setShowThumbnail(false);
+      handleViewCountAndEarning();
     }
   };
 
@@ -98,7 +115,12 @@ export default function VideoPlayer({ clip, isActive }: VideoPlayerProps) {
           <View style={styles.userInfo}>
             <Image source={{ uri: clip.userAvatar }} style={styles.userAvatar} />
             <View>
-              <Text style={styles.username}>{clip.username}</Text>
+              <Text style={styles.username}>
+                {clip.username}
+                {clip.userIsVerified && (
+                  <Text style={styles.verifiedBadge}> {clip.userBadgeType ? `✔️${clip.userBadgeType}` : '✔️公式'}</Text>
+                )}
+              </Text>
               <Text style={styles.timeAgo}>{formatTimeSince(clip.createdAt)}</Text>
             </View>
           </View>
@@ -307,5 +329,11 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
+  },
+  verifiedBadge: {
+    color: '#facc15',
+    fontWeight: 'bold',
+    marginLeft: 4,
+    fontSize: 14,
   },
 });

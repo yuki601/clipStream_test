@@ -5,7 +5,7 @@ import Colors from "@/constants/colors";
 import { VideoClip } from "@/types";
 
 interface ClipThumbnailProps {
-  clip: VideoClip;
+  clip: VideoClip & { userIsVerified?: boolean; userBadgeType?: string };
   onPress: () => void;
   size?: "small" | "medium" | "large";
 }
@@ -54,6 +54,11 @@ export default function ClipThumbnail({
         {clip.isPinned && (
           <View style={styles.pinnedBadge}>
             <Text style={styles.pinnedText}>Pinned</Text>
+          </View>
+        )}
+        {clip.userIsVerified && (
+          <View style={styles.verifiedBadge}>
+            <Text style={styles.verifiedText}>{clip.userBadgeType ? `✔️${clip.userBadgeType}` : '✔️公式'}</Text>
           </View>
         )}
       </View>
@@ -115,5 +120,19 @@ const styles = StyleSheet.create({
     color: Colors.text,
     fontSize: 10,
     fontWeight: "600" as const,
+  },
+  verifiedBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#facc15',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  verifiedText: {
+    color: '#18181b',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
 });

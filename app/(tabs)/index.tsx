@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { StyleSheet, View, Text, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
@@ -10,18 +10,43 @@ import ClipThumbnail from "@/components/ClipThumbnail";
 import TrendingSection from "@/components/TrendingSection";
 import { clipsApi, trendingApi } from "@/lib/api";
 import { mockUsers } from "@/mocks/users";
+import { supabase } from '@/lib/supabase';
 
 export default function HomeScreen() {
   const router = useRouter();
   const [viewingStories, setViewingStories] = useState(false);
   const [selectedStoryIndex, setSelectedStoryIndex] = useState(0);
   const [selectedClips, setSelectedClips] = useState<any[]>([]);
+  const [users, setUsers] = useState<{[id: string]: any}>({});
 
   // APIからデータを取得
   const { data: clips, isLoading: clipsLoading, error: clipsError } = useQuery({
     queryKey: ['clips'],
     queryFn: clipsApi.getAllClips,
   });
+
+  useEffect(() => {
+    if (clips) {
+      const ids = Array.from(new Set(clips.map((c: any) => c.userId)));
+      supabase.from('users').select('*').in('id', ids).then(({ data }) => {
+        const userMap: {[id: string]: any} = {};
+        (data || []).forEach((u: any) => { userMap[u.id] = u; });
+        setUsers(userMap);
+      });
+    }
+  }, [clips]);
+
+  // 公式ユーザー優遇ソート
+  const sortedClips = React.useMemo(() => {
+    if (!clips) return [];
+    return [...clips].sort((a, b) => {
+      const aVerified = users[a.userId]?.is_verified ? 1 : 0;
+      const bVerified = users[b.userId]?.is_verified ? 1 : 0;
+      if (aVerified !== bVerified) return bVerified - aVerified;
+      // 公式同士/非公式同士は元の順（createdAt降順）
+      return 0;
+    });
+  }, [clips, users]);
 
   const { data: trendingClips, isLoading: trendingLoading } = useQuery({
     queryKey: ['trending'],
@@ -108,10 +133,10 @@ export default function HomeScreen() {
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Featured Clips</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.featuredScroll}>
-            {clips?.slice(0, 3).map((clip, index) => (
+            {sortedClips?.slice(0, 3).map((clip, index) => (
               <ClipThumbnail
                 key={clip.id}
-                clip={clip}
+                clip={{ ...clip, userIsVerified: users[clip.userId]?.is_verified, userBadgeType: users[clip.userId]?.badge_type }}
                 size="medium"
                 onPress={() => handleClipPress(index)}
               />
@@ -123,10 +148,10 @@ export default function HomeScreen() {
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Recent Clips</Text>
           <View style={styles.recentGrid}>
-            {clips?.map((clip, index) => (
+            {sortedClips?.map((clip, index) => (
               <ClipThumbnail
                 key={clip.id}
-                clip={clip}
+                clip={{ ...clip, userIsVerified: users[clip.userId]?.is_verified, userBadgeType: users[clip.userId]?.badge_type }}
                 size="small"
                 onPress={() => handleClipPress(index)}
               />

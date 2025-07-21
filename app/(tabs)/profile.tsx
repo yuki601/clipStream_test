@@ -35,6 +35,27 @@ export default function ProfileScreen() {
     router.push("/settings");
   };
 
+  // 公式ユーザー優遇ソート（自分のクリップは全てcurrentUserだが、今後拡張性のため）
+  const sortedClips = React.useMemo(() => {
+    if (!mockClips) return [];
+    return [...mockClips].sort((a, b) => {
+      const aVerified = currentUser?.is_verified ? 1 : 0;
+      const bVerified = currentUser?.is_verified ? 1 : 0;
+      if (aVerified !== bVerified) return bVerified - aVerified;
+      return 0;
+    });
+  }, [mockClips, currentUser]);
+
+  const sortedHighlights = React.useMemo(() => {
+    if (!currentUser?.highlights) return [];
+    return [...currentUser.highlights].sort((a, b) => {
+      const aVerified = currentUser?.is_verified ? 1 : 0;
+      const bVerified = currentUser?.is_verified ? 1 : 0;
+      if (aVerified !== bVerified) return bVerified - aVerified;
+      return 0;
+    });
+  }, [currentUser]);
+
   if (viewingStories) {
     return (
       <StoryViewer
@@ -77,7 +98,12 @@ export default function ProfileScreen() {
             <Settings color={Colors.text} size={24} />
           </Pressable>
         </View>
-
+        {/* 公式バッジ表示 */}
+        {currentUser?.is_verified && (
+          <View style={styles.verifiedBadge}>
+            <Text style={styles.verifiedText}>{currentUser.badge_type ? `✔️${currentUser.badge_type}` : '✔️公式'}</Text>
+          </View>
+        )}
         {/* Bio */}
         <View style={styles.bioContainer}>
           <Text style={styles.username}>@{currentUser?.username}</Text>
@@ -116,10 +142,10 @@ export default function ProfileScreen() {
         <View style={styles.contentContainer}>
           {activeTab === "clips" ? (
             <View style={styles.clipsGrid}>
-              {mockClips.map((clip, index) => (
+              {sortedClips.map((clip, index) => (
                 <ClipThumbnail
                   key={clip.id}
-                  clip={clip}
+                  clip={{ ...clip, userIsVerified: currentUser?.is_verified, userBadgeType: currentUser?.badge_type }}
                   size="small"
                   onPress={() => handleClipPress(index)}
                 />
@@ -127,11 +153,11 @@ export default function ProfileScreen() {
             </View>
           ) : (
             <View style={styles.highlightsGrid}>
-              {currentUser?.highlights.length ? (
-                currentUser.highlights.map((clip, index) => (
+              {sortedHighlights.length ? (
+                sortedHighlights.map((clip, index) => (
                   <ClipThumbnail
                     key={clip.id}
-                    clip={clip}
+                    clip={{ ...clip, userIsVerified: currentUser?.is_verified, userBadgeType: currentUser?.badge_type }}
                     size="medium"
                     onPress={() => handleClipPress(index)}
                   />
@@ -283,5 +309,18 @@ const styles = StyleSheet.create({
     marginTop: 5,
     textAlign: "center",
     paddingHorizontal: 40,
+  },
+  verifiedBadge: {
+    alignSelf: 'center',
+    backgroundColor: '#facc15',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  verifiedText: {
+    color: '#18181b',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
 });

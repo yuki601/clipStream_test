@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { VideoClip, User } from '@/types';
+import { VideoClip, User, Comment, Chat, ChatMessage } from '@/types';
 
 // クリップ関連のAPI
 export const clipsApi = {
@@ -287,5 +287,312 @@ export const trendingApi = {
       isPinned: clip.is_pinned,
       visibility: clip.visibility,
     })) || [];
+  },
+};
+
+// コレクション関連のAPI
+export const collectionsApi = {
+  // コレクション一覧取得
+  async getAllCollections() {
+    const { data, error } = await supabase
+      .from('collections')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+  // コレクション詳細取得
+  async getCollection(id: string) {
+    const { data, error } = await supabase
+      .from('collections')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  // コレクション作成
+  async createCollection(collection: {
+    title: string;
+    description?: string;
+    owner_id: string;
+    is_public?: boolean;
+    cover_image?: string;
+  }) {
+    const { data, error } = await supabase
+      .from('collections')
+      .insert(collection)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  // コレクション編集
+  async updateCollection(id: string, updates: any) {
+    const { data, error } = await supabase
+      .from('collections')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  // コレクション削除
+  async deleteCollection(id: string) {
+    const { error } = await supabase
+      .from('collections')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+  },
+  // コレクションへのクリップ追加
+  async addClipToCollection(collection_id: string, clip_id: string, order_index = 0) {
+    const { data, error } = await supabase
+      .from('collection_clips')
+      .insert({ collection_id, clip_id, order_index })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  // コレクションからクリップ削除
+  async removeClipFromCollection(collection_id: string, clip_id: string) {
+    const { error } = await supabase
+      .from('collection_clips')
+      .delete()
+      .eq('collection_id', collection_id)
+      .eq('clip_id', clip_id);
+    if (error) throw error;
+  },
+  // コレクション内のクリップ一覧取得
+  async getClipsInCollection(collection_id: string) {
+    const { data, error } = await supabase
+      .from('collection_clips')
+      .select('clip_id, order_index, clips(*)')
+      .eq('collection_id', collection_id)
+      .order('order_index', { ascending: true });
+    if (error) throw error;
+    return data;
+  },
+};
+
+// バッジ関連のAPI
+export const badgesApi = {
+  // ユーザーのバッジ一覧取得
+  async getUserBadges(user_id: string) {
+    const { data, error } = await supabase
+      .from('badges')
+      .select('*')
+      .eq('user_id', user_id);
+    if (error) throw error;
+    return data;
+  },
+  // バッジ申請（運営審査用）
+  async applyBadge(user_id: string, badge_type: string) {
+    const { data, error } = await supabase
+      .from('badges')
+      .insert({ user_id, badge_type })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  // バッジ削除
+  async deleteBadge(id: string) {
+    const { error } = await supabase
+      .from('badges')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+  },
+};
+
+// 収益分配・ポイント関連のAPI
+export const earningsApi = {
+  // 収益履歴取得
+  async getUserEarnings(user_id: string) {
+    const { data, error } = await supabase
+      .from('earnings')
+      .select('*')
+      .eq('user_id', user_id)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+  // 収益付与
+  async addEarning(user_id: string, amount: number, source_type: string, source_id: string) {
+    const { data, error } = await supabase
+      .from('earnings')
+      .insert({ user_id, amount, source_type, source_id })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  // ユーザーポイント取得
+  async getUserPoints(user_id: string) {
+    const { data, error } = await supabase
+      .from('users')
+      .select('points')
+      .eq('id', user_id)
+      .single();
+    if (error) throw error;
+    return data?.points || 0;
+  },
+  // ユーザーポイント加算
+  async addUserPoints(user_id: string, amount: number) {
+    const { data, error } = await supabase
+      .from('users')
+      .update({ points: supabase.rpc('add_points', { user_id, amount }) })
+      .eq('id', user_id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+};
+
+// コメント関連のAPI
+export const commentsApi = {
+  // 対象（clip/collection）ごとのコメント一覧取得
+  async getComments(targetType: 'clip' | 'collection', targetId: string): Promise<Comment[]> {
+    const { data, error } = await supabase
+      .from('comments')
+      .select('*')
+      .eq('target_type', targetType)
+      .eq('target_id', targetId)
+      .eq('deleted', false)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  },
+  // コメント作成
+  async createComment(comment: Omit<Comment, 'id' | 'createdAt' | 'updatedAt' | 'deleted'>): Promise<Comment> {
+    const { data, error } = await supabase
+      .from('comments')
+      .insert({
+        parent_id: comment.parentId,
+        target_type: comment.targetType,
+        target_id: comment.targetId,
+        user_id: comment.userId,
+        username: comment.username,
+        user_avatar: comment.userAvatar,
+        content: comment.content,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  // コメント更新
+  async updateComment(id: string, content: string): Promise<Comment> {
+    const { data, error } = await supabase
+      .from('comments')
+      .update({ content, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  // コメント削除（論理削除）
+  async deleteComment(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('comments')
+      .update({ deleted: true, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) throw error;
+  },
+};
+
+// チャット（DM）関連のAPI
+export const chatsApi = {
+  // ユーザーが参加しているチャット一覧取得
+  async getUserChats(userId: string): Promise<Chat[]> {
+    const { data, error } = await supabase
+      .from('chats')
+      .select('*')
+      .contains('user_ids', [userId]);
+    if (error) throw error;
+    return data || [];
+  },
+  // チャット作成（1対1/グループ）
+  async createChat(userIds: string[]): Promise<Chat> {
+    const { data, error } = await supabase
+      .from('chats')
+      .insert({ user_ids: userIds })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  // チャット内メッセージ一覧取得
+  async getChatMessages(chatId: string): Promise<ChatMessage[]> {
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .select('*')
+      .eq('chat_id', chatId)
+      .eq('deleted', false)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  },
+  // メッセージ送信
+  async sendMessage(msg: Omit<ChatMessage, 'id' | 'createdAt' | 'updatedAt' | 'deleted'>): Promise<ChatMessage> {
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .insert({
+        chat_id: msg.chatId,
+        user_id: msg.userId,
+        username: msg.username,
+        user_avatar: msg.userAvatar,
+        content: msg.content,
+        type: msg.type,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  // メッセージ編集
+  async updateMessage(id: string, content: string): Promise<ChatMessage> {
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .update({ content, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  // メッセージ削除（論理削除）
+  async deleteMessage(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('chat_messages')
+      .update({ deleted: true, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) throw error;
+  },
+  // チャットごとの未読数取得
+  async getUnreadCount(chatId: string, userId: string): Promise<number> {
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .select('id')
+      .eq('chat_id', chatId)
+      .not('read_by_user_ids', 'cs', `{${userId}}`)
+      .eq('deleted', false);
+    if (error) throw error;
+    return data ? data.length : 0;
+  },
+  // チャット内メッセージを既読にする
+  async markAsRead(chatId: string, userId: string): Promise<void> {
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .update({ read_by_user_ids: supabase.raw('array_append(read_by_user_ids, ?)', [userId]) })
+      .eq('chat_id', chatId)
+      .not('read_by_user_ids', 'cs', `{${userId}}`)
+      .eq('deleted', false);
+    if (error) throw error;
   },
 }; 

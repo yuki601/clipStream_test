@@ -1,9 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { StyleSheet, View, Text, ScrollView, Pressable, Image, TextInput } from "react-native";
 import { useRouter } from "expo-router";
 import { Search, Edit3, Camera, Mic } from "lucide-react-native";
 import Colors from "@/constants/colors";
 import Header from "@/components/Header";
+import { chatsApi } from '@/lib/api';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
 
 interface Message {
   id: string;
@@ -77,16 +80,60 @@ const mockMessages: Message[] = [
 
 export default function MessagesScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
+  const [chats, setChats] = useState<any[]>([]);
+  const [latestMessages, setLatestMessages] = useState<{[chatId: string]: any}>({});
+  const [loading, setLoading] = useState(true);
+  const [userMap, setUserMap] = useState<{[id: string]: any}>({});
+  const [unreadCounts, setUnreadCounts] = useState<{[chatId: string]: number}>({});
 
-  const filteredMessages = mockMessages.filter(message =>
-    message.friendName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  useEffect(() => {
+    if (!user) return;
+    setLoading(true);
+    chatsApi.getUserChats(user.id)
+      .then(async (chatList) => {
+        setChats(chatList);
+        // 各チャットの最新メッセージを取得
+        const msgMap: {[chatId: string]: any} = {};
+        const otherUserIds = new Set<string>();
+        chatList.forEach((chat: any) => {
+          (chat.user_ids as string[]).forEach((uid: string) => {
+            if (uid !== user.id) otherUserIds.add(uid);
+          });
+        });
+        // 相手ユーザー情報をまとめて取得
+        if (otherUserIds.size > 0) {
+          const { data: usersData } = await supabase.from('users').select('*').in('id', Array.from(otherUserIds));
+          const map: {[id: string]: any} = {};
+          (usersData || []).forEach((u: any) => { map[u.id] = u; });
+          setUserMap(map);
+        }
+        await Promise.all(chatList.map(async (chat: any) => {
+          const msgs = await chatsApi.getChatMessages(chat.id);
+          if (msgs.length > 0) msgMap[chat.id] = msgs[msgs.length - 1];
+        }));
+        setLatestMessages(msgMap);
+        // 各チャットの未読数を取得
+        const unreadMap: {[chatId: string]: number} = {};
+        await Promise.all(chatList.map(async (chat: any) => {
+          const count = await chatsApi.getUnreadCount(chat.id, user.id);
+          unreadMap[chat.id] = count;
+        }));
+        setUnreadCounts(unreadMap);
+      })
+      .finally(() => setLoading(false));
+  }, [user]);
 
-  const unreadCount = mockMessages.filter(msg => !msg.isRead).length;
+  const filteredChats = chats.filter(chat => {
+    // 検索は相手ユーザー名で（仮: user_ids以外の情報は要拡張）
+    return chat.id.includes(searchQuery); // TODO: ユーザー名での検索に拡張
+  });
 
-  const handleChatPress = (friendId: string) => {
-    router.push(`/chat/${friendId}`);
+  const unreadCount = 0; // TODO: 未読数取得ロジック
+
+  const handleChatPress = (chatId: string) => {
+    router.push(`/chat/${chatId}`);
   };
 
   const getMessageIcon = (type: Message["messageType"]) => {
@@ -100,36 +147,38 @@ export default function MessagesScreen() {
     }
   };
 
-  const MessageItem = ({ message }: { message: Message }) => (
-    <Pressable 
-      style={[styles.messageItem, !message.isRead && styles.unreadMessage]} 
-      onPress={() => handleChatPress(message.friendId)}
-    >
-      <View style={styles.avatarContainer}>
-        <Image source={{ uri: message.friendAvatar }} style={styles.avatar} />
-        {message.isOnline && <View style={styles.onlineIndicator} />}
-      </View>
-      <View style={styles.messageContent}>
-        <View style={styles.messageHeader}>
-          <Text style={styles.friendName}>{message.friendName}</Text>
-          <Text style={styles.timestamp}>{message.timestamp}</Text>
+  const MessageItem = ({ chat }: { chat: any }) => {
+    const lastMsg = latestMessages[chat.id];
+    const otherUserId = (chat.user_ids as string[]).find((uid: string) => uid !== user?.id);
+    const otherUser = otherUserId ? userMap[otherUserId] : null;
+    return (
+      <Pressable 
+        style={styles.messageItem} 
+        onPress={() => handleChatPress(chat.id)}
+      >
+        <View style={styles.avatarContainer}>
+          <Image source={{ uri: otherUser?.avatar || '' }} style={styles.avatar} />
+          {unreadCounts[chat.id] > 0 && (
+            <View style={styles.unreadDot} />
+          )}
         </View>
-        <View style={styles.lastMessageContainer}>
-          {getMessageIcon(message.messageType)}
-          <Text 
-            style={[
-              styles.lastMessage, 
-              !message.isRead && styles.unreadText
-            ]} 
-            numberOfLines={1}
-          >
-            {message.lastMessage}
-          </Text>
+        <View style={styles.messageContent}>
+          <View style={styles.messageHeader}>
+            <Text style={styles.friendName}>{otherUser?.display_name || otherUser?.username || chat.id}</Text>
+            <Text style={styles.timestamp}>{lastMsg ? new Date(lastMsg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</Text>
+          </View>
+          <View style={styles.lastMessageContainer}>
+            <Text style={styles.lastMessage} numberOfLines={1}>
+              {lastMsg ? lastMsg.content : 'No messages yet'}
+            </Text>
+            {unreadCounts[chat.id] > 0 && (
+              <Text style={styles.unreadCountBadge}>{unreadCounts[chat.id]}</Text>
+            )}
+          </View>
         </View>
-      </View>
-      {!message.isRead && <View style={styles.unreadDot} />}
-    </Pressable>
-  );
+      </Pressable>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -171,11 +220,15 @@ export default function MessagesScreen() {
 
       {/* Messages List */}
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {filteredMessages.map((message) => (
-          <MessageItem key={message.id} message={message} />
-        ))}
+        {loading ? (
+          <Text style={{ color: Colors.textSecondary }}>Loading...</Text>
+        ) : (
+          filteredChats.map((chat) => (
+            <MessageItem key={chat.id} chat={chat} />
+          ))
+        )}
 
-        {filteredMessages.length === 0 && (
+        {filteredChats.length === 0 && (
           <View style={styles.emptyState}>
             <Edit3 color={Colors.textSecondary} size={50} />
             <Text style={styles.emptyStateText}>
@@ -325,6 +378,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     marginLeft: 10,
   },
+  unreadCountBadge: { backgroundColor: '#facc15', color: '#18181b', borderRadius: 10, paddingHorizontal: 6, marginLeft: 8, fontWeight: 'bold', fontSize: 12 },
   emptyState: {
     alignItems: "center",
     justifyContent: "center",
