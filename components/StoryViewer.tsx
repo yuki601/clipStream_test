@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { StyleSheet, View, FlatList, Dimensions, Animated, Pressable } from "react-native";
+import { StyleSheet, View, FlatList, Dimensions, Animated, Pressable, Text } from "react-native";
 import { ArrowLeft, Home } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { VideoClip } from "@/types";
@@ -21,13 +21,13 @@ export default function StoryViewer({ clips, initialClipIndex = 0, onClose }: St
   const router = useRouter();
 
   useEffect(() => {
-    if (flatListRef.current && initialClipIndex > 0) {
+    if (flatListRef.current && initialClipIndex > 0 && clips.length > 0) {
       flatListRef.current.scrollToIndex({
         index: initialClipIndex,
         animated: false,
       });
     }
-  }, [initialClipIndex]);
+  }, [initialClipIndex, clips.length]);
 
   const handleScroll = Animated.event(
     [{ nativeEvent: { contentOffset: { x: scrollX } } }],
@@ -54,6 +54,25 @@ export default function StoryViewer({ clips, initialClipIndex = 0, onClose }: St
   const renderItem = ({ item, index }: { item: VideoClip; index: number }) => {
     return <VideoPlayer clip={item} isActive={index === activeIndex} />;
   };
+
+  // データが空の場合は何も表示しない
+  if (!clips || clips.length === 0) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.navigationHeader}>
+          <Pressable style={styles.navButton} onPress={handleBackPress}>
+            <ArrowLeft color={Colors.text} size={24} />
+          </Pressable>
+          <Pressable style={styles.navButton} onPress={handleHomePress}>
+            <Home color={Colors.text} size={24} />
+          </Pressable>
+        </View>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No clips available</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -108,5 +127,15 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: Colors.backgroundDark,
+  },
+  emptyText: {
+    color: Colors.text,
+    fontSize: 16,
   },
 });

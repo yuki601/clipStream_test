@@ -1,11 +1,14 @@
 import React, { useState } from "react";
 import { StyleSheet, View, Text, TextInput, Pressable, ScrollView, Image, Alert, Platform } from "react-native";
 import { useRouter } from "expo-router";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { X, Upload, Youtube, Link2, Clock, Tag, Globe, Lock, ChevronDown, Check, Plus } from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
 import Colors from "@/constants/colors";
 import Header from "@/components/Header";
 import { PRESET_GAME_TAGS } from "@/constants/game-tags";
+import { clipsApi } from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
 
 type UploadMethod = "local" | "youtube" | "url";
 type Visibility = "public" | "followers" | "private";
@@ -13,6 +16,8 @@ type ExpiryTime = "24h" | "48h" | "week" | "never";
 
 export default function UploadScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [uploadMethod, setUploadMethod] = useState<UploadMethod>("youtube");
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
@@ -25,7 +30,27 @@ export default function UploadScreen() {
   const [showExpiryOptions, setShowExpiryOptions] = useState(false);
   const [showPresetTags, setShowPresetTags] = useState(false);
 
+  // クリップ作成のミューテーション
+  const createClipMutation = useMutation({
+    mutationFn: clipsApi.createClip,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clips'] });
+      queryClient.invalidateQueries({ queryKey: ['trending'] });
+      Alert.alert("Success", "Your clip has been uploaded!", [
+        { text: "OK", onPress: () => router.back() }
+      ]);
+    },
+    onError: (error) => {
+      Alert.alert("Error", "Failed to upload clip. Please try again.");
+    },
+  });
+
   const handleUpload = () => {
+    if (!user) {
+      Alert.alert("Error", "Please sign in to upload clips");
+      return;
+    }
+
     if (!title.trim()) {
       Alert.alert("Error", "Please enter a title for your clip");
       return;
@@ -41,9 +66,41 @@ export default function UploadScreen() {
       return;
     }
 
-    Alert.alert("Success", "Your clip has been uploaded!", [
-      { text: "OK", onPress: () => router.back() }
-    ]);
+    // 有効期限の計算
+    const now = new Date();
+    let expiresAt = new Date();
+    switch (expiryTime) {
+      case "24h":
+        expiresAt.setHours(now.getHours() + 24);
+        break;
+      case "48h":
+        expiresAt.setHours(now.getHours() + 48);
+        break;
+      case "week":
+        expiresAt.setDate(now.getDate() + 7);
+        break;
+      case "never":
+        expiresAt = new Date(now.getTime() + 100 * 365 * 24 * 60 * 60 * 1000); // 100年後
+        break;
+    }
+
+    const clipData = {
+      title: title.trim(),
+      url: url.trim(),
+      thumbnailUrl: thumbnailUrl || "https://via.placeholder.com/300x200",
+      duration: 0, // 実際の実装では動画の長さを取得する必要があります
+      source: uploadMethod as 'youtube' | 'twitch' | 'medal' | 'local' | 'other',
+      gameTag: gameTags,
+      expiresAt: expiresAt.toISOString(),
+      userId: user.id,
+      username: user.user_metadata?.username || user.email?.split('@')[0] || 'user',
+      userAvatar: user.user_metadata?.avatar || "https://via.placeholder.com/100x100",
+      isArchived: false,
+      isPinned: false,
+      visibility: visibility,
+    };
+
+    createClipMutation.mutate(clipData);
   };
 
   const handleAddTag = () => {
